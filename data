@@ -1,0 +1,412 @@
+/*;;;;;;;;;;;;;;;;App.js;;;;;;;;;;
+
+import React from "react";
+import {StyleSheet, View, Text} from "react-native";
+import {NavigationContainer} from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { ProductsList } from "./screens/ProductsList.js";
+import { ProductDetails } from "./screens/ProductDetails.js";
+import { Cart } from "./screens/Cart.js";
+import { CartProvider } from "./CartContext.js";
+import { CartIcon } from "./components/CartIcon.js";
+
+const Stack = createNativeStackNavigator();
+
+function App(){
+  return(
+    <CartProvider>
+      <NavigationContainer>
+        <Stack.Navigator>
+          <Stack.Screen name="Products" component={ProductsList} options={({navigation}) => ({title: 'Products', headerRight: () => <CartIcon navigation={navigation} />})} />
+          <Stack.Screen name="ProductDetails" component={ProductDetails} options={({navigation}) => ({title: 'Products', headerRight: () => <CartIcon navigation={navigation} />})} />
+          <Stack.Screen name="Cart" component={Cart} options={({navigation}) => ({title: 'Products', headerRight: () => <CartIcon navigation={navigation} />})} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </CartProvider>
+  )
+}
+
+const styles = StyleSheet.create({
+  Container: {
+    textAlign: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1
+  },
+  text: {
+    fontSize: 30,
+    fontWeight: 'bold',
+  }
+})
+
+export default App;
+
+;;;;;;;;;;;;;CartCon;;;;;;;;;;;;
+import React, {createContext, useState} from "react";
+import {getProduct} from "./services/ProductsService.js";
+
+export const CartContext = createContext();
+
+export function CartProvider(props){
+
+    const [items, setItems] = useState([]);
+
+    function addItemToCart(id){
+        const product = getProduct(id);
+        setItems((prevItems) => {
+            const item = prevItems.find((item) => (item.id == id));
+            if(!item){
+                return [...prevItems, {
+                    id, 
+                    qty: 1,
+                    product, 
+                    totalPrice: product.price
+                }]
+            }else{
+                return prevItems.map((item) => {
+                    if(item.id == id){
+                        item.qty++;
+                        item.totalPrice += product.price;
+                    }
+                    return item;
+                })
+            }
+        })
+    }
+
+    function getItemsCount(){
+        return items.reduce((sum,item) => (sum + item.qty), 0)
+    }
+
+    function getTotalPrice(){
+        return items.reduce((sum, item) => (sum + item.totalPrice), 0)
+    }
+
+    return(
+        <CartContext.Provider value={{items, getItemsCount, addItemToCart, getTotalPrice}}>
+            {props.children}
+        </CartContext.Provider>
+    )
+
+}
+
+;;;;;;;;;;;;;;;ProdSe;;;;;;;
+const PRODUCTS = [
+    {
+        id: 1,
+        name: "Apple iPhone 13 Pro Max",
+        price: 389,
+        image: require("../assets/product_images/phone.jpeg"),
+        description:
+          "6.7-inch Super Retina XDR display with ProMotion for a faster, more responsive feel Cinematic mode adds shallow depth of field and shifts focus automatically in your videos",
+    },
+    {
+        id: 2,
+        name: "PNY GeForce GTX 1060 6GB",
+        price: 79,
+        image: require("../assets/product_images/graphics.jpeg"),
+        description:
+            "6.7-inch Super Retina XDR display with ProMotion for a faster, more responsive feel Cinematic mode adds shallow depth of field and shifts focus automatically in your videos",
+    },
+    {
+    id: 3,
+    name: "Acer Predator Triton",
+    price: 979,
+    image: require("../assets/product_images/laptop.jpg"),
+    description: "Processor: Intel Core i9 11900H RAM: 32 GB (16GB+16GB) Storage: 1024GB PCIe NVMe SSD"
+    }
+]
+
+export function getProducts(){
+    return PRODUCTS;
+}
+
+export function getProduct(id){
+    return PRODUCTS.find((product) => product.id == id);
+}
+
+;;;;;;;;;;;;FileList;;;;;;;;;;;;;
+import React, {useEffect, useState} from "react";
+import {View, Text, FlatList, StyleSheet} from "react-native";
+import { getProducts } from "../services/ProductsService";
+import {Product} from "../components/Product";
+
+export function ProductsList({navigation}){
+
+    function renderProduct({item: product}){
+        return(
+            <Product 
+                {...product}
+                onPress={() => {
+                    navigation.navigate('ProductDetails', {productId: product.id})
+                }}
+            />
+        )
+    }
+
+    const [products, setProducts] = useState([]);
+
+    useEffect(() => {
+        setProducts(getProducts())
+    })
+
+    return(
+        <FlatList 
+            style={styles.productsList}
+            contentContainerStyle={styles.productsListContainer}
+            keyExtractor={(item) => item.id.toString()}
+            data={products}
+            renderItem={renderProduct}
+        />
+    )
+
+}
+
+const styles = StyleSheet.create({
+    productsList: {
+      backgroundColor: "#eeeeee",
+    },
+    productsListContainer: {
+      backgroundColor: "#eeeeee",
+      paddingVertical: 8,
+      marginHorizontal: 8,
+    },
+  });
+  ;;;;;;;;;;;;;;;;;;;;Details;;;;;;
+  import React, {useEffect, useState, useContext} from 'react';
+import {Text, StyleSheet, View, Image, ScrollView, SafeAreaView, Button} from "react-native";
+import { getProduct } from '../services/ProductsService';
+import {CartContext} from "../CartContext";
+
+export function ProductDetails({route}) {
+
+    const {productId} = route.params;
+    const [product, setProduct] = useState({});
+
+    useEffect(() => {
+        setProduct(getProduct(productId))
+    })
+
+    const {addItemToCart} = useContext(CartContext)
+
+    function onAddToCart(){
+      addItemToCart(product.id)
+    }
+
+
+  return (
+    <SafeAreaView>
+        <ScrollView>
+            <View style={styles.imageContainer}>
+                <Image style={styles.image} source={product.image} />
+            </View>
+            <View style={styles.infoContainer}>
+                <Text style={styles.name}>{product.name}</Text>
+                <Text style={styles.price}>$ {product.price}</Text>
+                <Text style={styles.description}>{product.description}</Text>
+                <Button onPress={onAddToCart} title="Add To Cart" />
+            </View>
+        </ScrollView>
+    </SafeAreaView>
+  )
+}
+
+const styles = StyleSheet.create({
+    imageContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+      backgroundColor: 'white'
+    },
+    image: {
+      width: '100%',
+      aspectRatio: 1
+    },
+    infoContainer: {
+      padding: 16
+    },
+    name: {
+      fontSize: 22,
+      fontWeight: 'bold',
+    },
+    price: {
+      fontSize: 16,
+      fontWeight: '600',
+      marginBottom: 8,
+    },
+    description: {
+      fontSize: 16,
+      fontWeight: '400',
+      color: '#787878',
+      marginBottom: 16,
+    },
+  });
+  ;;;;;;;;;;;;;;;;;Cart;;;;
+  import React, {useEffect, useState, useContext} from "react";
+import {View, Image, Text, Button, FlatList, StyleSheet} from "react-native";
+import {CartContext} from "../CartContext";
+
+export function Cart({navigation}){
+    const {items, getItemsCount, getTotalPrice} = useContext(CartContext);
+
+    function Totals(){
+        let [total, setTotal] = useState(0);
+        useEffect(() => {
+            setTotal(getTotalPrice())
+        })
+        return(
+            <View style={styles.cartLineTotal}>
+                <Text style={[styles.lineLeft, styles.lineTotal]}>Total</Text>
+                <Text style={styles.mainTotal}>$ {total}</Text>
+            </View>
+        )
+    }
+
+    function renderItem({item}){
+        return(
+            <>
+                <View style={styles.cartLine}>
+                    <Image style={styles.image} source={item.product.image} />
+                    <Text style={styles.lineLeft}>{item.product.name} x {item.qty} <Text style={styles.productTotal}>${item.totalPrice}</Text></Text>
+                </View>
+            </>
+        )
+    }
+
+    return(
+        <FlatList
+            style={styles.itemsList}
+            contentContainerStyle={styles.itemsListContainer}
+            data={items}
+            renderItem={renderItem}
+            keyExtractor={(item) => item.product.id.toString()}
+            ListFooterComponent={Totals}
+        />
+    )
+
+}
+
+const styles = StyleSheet.create({
+	cartLine: {
+		flexDirection: 'row',
+		width: '80%',
+		paddingVertical: 10
+	},
+	image: {
+		width: '25%',
+		aspectRatio: 1,
+		marginRight: 5
+	},
+	cartLineTotal: {
+		flexDirection: 'row',
+		borderTopColor: '#dddddd',
+		borderTopWidth: 1
+	},
+	productTotal: {
+		fontWeight: 'bold'
+	},
+	lineTotal: {
+		fontWeight: 'bold'
+	},
+	lineLeft: {
+		fontSize: 20,
+		lineHeight: 40,
+		color: '#333333'
+	},
+	lineRight: {
+		fontSize: 20,
+		fontWeight: 'bold',
+		color: '#333333',
+		textAlign: 'left',
+	},
+	mainTotal: {
+		flex: 1,
+		fontSize: 20,
+		fontWeight: 'bold',
+		lineHeight: 40,
+		color: '#333333',
+		textAlign: 'right'
+	},
+	itemsList: {
+		backgroundColor: '#eeeeee'
+	},
+	itemsListContainer: {
+		backgroundColor: '#eeeeee',
+		paddingVertical: 8,
+		marginHorizontal: 8
+	}
+})
+
+;;;;;;;;;;;CartIcon;;;;;
+import React, {useContext} from "react";
+import {View, Text, StyleSheet} from "react-native";
+import { CartContext } from "../CartContext";
+
+export function CartIcon({navigation}){
+    const {getItemsCount} = useContext(CartContext);
+    return(
+        <View style={styles.container}>
+            <Text style={styles.text} onPress={() => {navigation.navigate('Cart')}}>
+                Cart ({getItemsCount()})
+            </Text>
+        </View>
+    )
+}
+
+const styles = StyleSheet.create({
+	container: {
+		marginHorizontal: 8,
+		backgroundColor: 'orange',
+		height: 39,
+		padding: 12,
+		borderRadius: 32,
+		alignItems: 'center',
+		justifyContent: 'center'
+	},
+	text: {
+		color: 'white',
+		fontWeight: 'bold',
+		fontSize: 13
+	}
+})
+;;;;;;;;;;DynamicsCompressorNode;;;;
+import React from "react";
+import {Text, Image, View, StyleSheet, TouchableOpacity} from "react-native";
+
+export function Product({name, price, image, onPress}){
+    return(
+        <TouchableOpacity style={styles.card} onPress={onPress}>
+            <Image style={styles.image} source={image} />
+            <View style={styles.infoContainer}>
+                <Text style={styles.name}>{name}</Text>
+                <Text style={styles.price}>$ {price}</Text>
+            </View>
+        </TouchableOpacity>
+    )
+}
+
+const styles = StyleSheet.create({
+    card: {
+        backgroundColor: 'white',
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: '4%'
+    },
+    image: {
+        width: '100%',
+        aspectRatio: 1
+    },
+    infoContainer: {
+        padding: 16 
+    },
+    name: {
+        fontSize: 22,
+        fontWeight: 'bold'
+    },
+    price: {
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 8
+    }
+})
+*/
